@@ -58,7 +58,7 @@ def evaluate_graph_model(loader, model, criterion):
             correct += (pred == data.y).sum().item()
     return total_loss / len(loader.dataset), correct / len(loader.dataset)
 
-def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=500, lr=1e-3, weight_decay=5e-4, patience=50):
+def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=300, lr=1e-3, weight_decay=5e-4, patience=50):
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = torch.nn.NLLLoss()
@@ -84,7 +84,7 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
     test_accuracy = test_node_model(data, model)
     return test_accuracy, training_time
 
-def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=500, lr=1e-3, weight_decay=5e-4, patience=50, batch_size=64):
+def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=300, lr=1e-3, weight_decay=5e-4, patience=50, batch_size=64):
     # Split the dataset
     torch.manual_seed(42)
     dataset = dataset.shuffle()

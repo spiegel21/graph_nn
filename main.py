@@ -1,4 +1,3 @@
-import os
 from models import GCNModel, GATModel, GINModel, GCNGraphClassifier, GATGraphClassifier, GINGraphClassifier
 from train import train_and_evaluate_node_model, train_and_evaluate_graph_model
 from utils import load_dataset
@@ -46,6 +45,17 @@ def main():
                     )
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
+
+    # Write results to a log file
+    log_file_path = "../outputs/results_log.txt"
+    with open(log_file_path, 'w') as log_file:
+        for dataset_name, metrics in results.items():
+            log_file.write(f"Results for {dataset_name} dataset:\n")
+            for model_name, values in metrics.items():
+                log_file.write(f"  Model: {model_name}\n")
+                log_file.write(f"    Accuracies: {values['accuracy']}\n")
+                log_file.write(f"    Training Times: {values['time']}\n")
+            log_file.write("\n")
     
     # Plotting results
     fig, axes = plt.subplots(len(datasets), 2, figsize=(12, 18))
@@ -69,7 +79,6 @@ def main():
     
     plt.tight_layout()
     plt.show()
-    os.exit(0)
 
 if __name__ == "__main__":
     main()
