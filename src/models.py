@@ -104,7 +104,10 @@ class GINGraphClassifier(torch.nn.Module):
         self.fc = torch.nn.Linear(hidden_channels, out_channels)
 
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        device = next(self.parameters()).device
+        x = data.x.to(device)
+        edge_index = data.edge_index.to(device)
+        batch = data.batch.to(device)
         for i, conv in enumerate(self.layers):
             x = conv(x, edge_index)
             x = F.relu(x)
@@ -127,7 +130,10 @@ class GCNGraphClassifier(torch.nn.Module):
         self.dropout = dropout
 
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        device = next(self.parameters()).device
+        x = data.x.to(device)
+        edge_index = data.edge_index.to(device)
+        batch = data.batch.to(device)
         for i, layer in enumerate(self.gcn_layers):
             x = layer(x, edge_index)
             if i < len(self.gcn_layers) - 1:
@@ -149,7 +155,10 @@ class GATGraphClassifier(torch.nn.Module):
         self.dropout = dropout
 
     def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        device = next(self.parameters()).device
+        x = data.x.to(device)
+        edge_index = data.edge_index.to(device)
+        batch = data.batch.to(device)
         for i, layer in enumerate(self.gat_layers):
             x = layer(x, edge_index)
             if i < len(self.gat_layers) - 1:
