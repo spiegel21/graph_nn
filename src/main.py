@@ -25,9 +25,9 @@ def main():
 
     # Datasets
     datasets = {
-        "Cora": load_dataset(root="/tmp/Cora", name="Cora"),
-        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY'),
-        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES')
+        "Cora": load_dataset(root="/tmp/Cora", name="Cora", device=device),
+        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY', device=device),
+        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device)
     }
 
     layer_configs = [2, 3, 4]
@@ -55,11 +55,11 @@ def main():
         print(f"\nEvaluating on {dataset_name} dataset")
 
         if dataset_name == "Cora":
-            data = dataset[0].to(device)  # Move data to device
+            data = dataset[0]  # Data is already on the correct device from load_dataset
             num_classes = dataset.num_classes
             num_features = data.num_node_features
         else:
-            data = dataset
+            data = dataset  # Data is already on the correct device from load_dataset
             num_classes = dataset.num_classes
             num_features = dataset.num_features
 
@@ -72,7 +72,8 @@ def main():
                     )
                 else:
                     accuracy, training_time = train_and_evaluate_graph_model(
-                        model_class, num_layers, num_features, num_classes, data
+                        model_class, num_layers, num_features, num_classes, data,
+                        device=device
                     )
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
