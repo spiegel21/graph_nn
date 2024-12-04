@@ -59,7 +59,7 @@ def main():
             num_classes = dataset.num_classes
             num_features = data.num_node_features
         else:
-            data = [graph.to(device) for graph in dataset]
+            data = dataset
             num_classes = dataset.num_classes
             num_features = dataset.num_features
 

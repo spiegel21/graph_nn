@@ -81,6 +81,7 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
 def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=200, lr=1e-2, weight_decay=5e-4, batch_size=64):
     torch.manual_seed(42)
     dataset = dataset.shuffle()
+    dataset = dataset.to(device)
     train_dataset = dataset[:int(len(dataset) * 0.8)]
     val_dataset = dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)]
     test_dataset = dataset[int(len(dataset) * 0.9):]
