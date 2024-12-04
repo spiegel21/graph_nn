@@ -34,7 +34,7 @@ def main():
         "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device)
     }
 
-    layer_configs = [2, 3]
+    layer_configs = [2]
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
@@ -93,9 +93,6 @@ def main():
                 log_file.write(f"    Training Times: {values['time']}\n")
             log_file.write("\n")
 
-    # Set style for better-looking plots
-    plt.style.use('seaborn')
-    
     # Create plots
     fig, axes = plt.subplots(len(datasets), 2, figsize=(15, 6 * len(datasets)))
     
@@ -104,35 +101,37 @@ def main():
     
     for i, (dataset_name, metrics) in enumerate(results.items()):
         # Plot accuracies
+        ax1 = axes[i, 0]
         for j, (model_name, values) in enumerate(metrics.items()):
-            axes[i, 0].plot(layer_configs, values['accuracy'], 
-                          label=f'{model_name}', 
-                          marker='o', 
-                          color=colors[j],
-                          linewidth=2,
-                          markersize=8)
-        axes[i, 0].set_title(f'{dataset_name} - Accuracy vs Number of Layers', 
-                           fontsize=12, pad=15)
-        axes[i, 0].set_xlabel('Number of Layers', fontsize=10)
-        axes[i, 0].set_ylabel('Accuracy', fontsize=10)
-        axes[i, 0].grid(True, linestyle='--', alpha=0.7)
-        axes[i, 0].legend(fontsize=10)
-        axes[i, 0].set_ylim(0, 1)  # Accuracy is between 0 and 1
+            ax1.plot(layer_configs, values['accuracy'], 
+                    label=f'{model_name}', 
+                    marker='o', 
+                    color=colors[j],
+                    linewidth=2,
+                    markersize=8)
+        ax1.set_title(f'{dataset_name} - Accuracy vs Number of Layers', 
+                     fontsize=12, pad=15)
+        ax1.set_xlabel('Number of Layers', fontsize=10)
+        ax1.set_ylabel('Accuracy', fontsize=10)
+        ax1.grid(True, linestyle='--', alpha=0.7)
+        ax1.legend(fontsize=10)
+        ax1.set_ylim(0, 1)  # Accuracy is between 0 and 1
 
         # Plot training times
+        ax2 = axes[i, 1]
         for j, (model_name, values) in enumerate(metrics.items()):
-            axes[i, 1].plot(layer_configs, values['time'], 
-                          label=f'{model_name}', 
-                          marker='o', 
-                          color=colors[j],
-                          linewidth=2,
-                          markersize=8)
-        axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers', 
-                           fontsize=12, pad=15)
-        axes[i, 1].set_xlabel('Number of Layers', fontsize=10)
-        axes[i, 1].set_ylabel('Training Time (seconds)', fontsize=10)
-        axes[i, 1].grid(True, linestyle='--', alpha=0.7)
-        axes[i, 1].legend(fontsize=10)
+            ax2.plot(layer_configs, values['time'], 
+                    label=f'{model_name}', 
+                    marker='o', 
+                    color=colors[j],
+                    linewidth=2,
+                    markersize=8)
+        ax2.set_title(f'{dataset_name} - Training Time vs Number of Layers', 
+                     fontsize=12, pad=15)
+        ax2.set_xlabel('Number of Layers', fontsize=10)
+        ax2.set_ylabel('Training Time (seconds)', fontsize=10)
+        ax2.grid(True, linestyle='--', alpha=0.7)
+        ax2.legend(fontsize=10)
 
     plt.tight_layout()
     
