@@ -105,10 +105,10 @@ def train_and_evaluate_graph_model(
     # Training loop
     for epoch in range(num_epochs):
         # Train the model
-        train_loss = train_graph_model(train_loader, model, optimizer, criterion, device)
+        train_loss = train_graph_model(train_loader, model, optimizer, criterion)
         
         # Evaluate on the validation set
-        val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion, device)
+        val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion)
         
         print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
     
@@ -116,6 +116,6 @@ def train_and_evaluate_graph_model(
     training_time = end_time - start_time
     
     # Test the model
-    test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion, device)
+    test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion)
     
     return test_accuracy, training_time
