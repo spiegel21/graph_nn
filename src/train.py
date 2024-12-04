@@ -38,29 +38,33 @@ def test_node_model(data, model):
 def train_graph_model(loader, model, optimizer, criterion):
     model.train()
     total_loss = 0
-    for data in loader:
-        data = data.to(device)
+    for batch in loader:
+        batch = batch.to(device)
         optimizer.zero_grad()
-        out = model(data)
-        loss = criterion(out, data.y)
+        out = model(batch)
+        loss = criterion(out, batch.y)
         loss.backward()
         optimizer.step()
-        total_loss += loss.item() * data.num_graphs
-    return total_loss / len(loader.dataset)
+        total_loss += loss.item()
+    return total_loss / len(loader)
 
 def evaluate_graph_model(loader, model, criterion):
     model.eval()
-    correct = 0
     total_loss = 0
+    correct = 0
     with torch.no_grad():
-        for data in loader:
-            data = data.to(device)
-            out = model(data)
-            loss = criterion(out, data.y)
-            total_loss += loss.item() * data.num_graphs
+        for batch in loader:
+            # Move the entire batch to the specified device
+            batch = batch.to(device)
+
+            out = model(batch)
+            loss = criterion(out, batch.y)
+            total_loss += loss.item()
             pred = out.argmax(dim=1)
-            correct += (pred == data.y).sum().item()
-    return total_loss / len(loader.dataset), correct / len(loader.dataset)
+            correct += (pred == batch.y).sum().item()
+    total_loss = total_loss / len(loader.dataset)
+    accuracy = correct / len(loader.dataset)
+    return total_loss, accuracy
 
 def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=200, lr=1e-2, weight_decay=5e-4):
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers).to(device)
