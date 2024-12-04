@@ -67,7 +67,7 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
     for epoch in range(num_epochs):
         train_loss = train_node_model(data, model, optimizer, criterion)
         val_loss, val_accuracy = evaluate_node_model(data, model, criterion)
-    print(f'Epoch {epoch}+1, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
+    print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
     end_time = time.time()
     training_time = end_time - start_time
     test_accuracy = test_node_model(data, model)

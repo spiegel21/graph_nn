@@ -2,27 +2,53 @@ from models import GCNModel, GATModel, GINModel, GCNGraphClassifier, GATGraphCla
 from train import train_and_evaluate_node_model, train_and_evaluate_graph_model
 from utils import load_dataset
 import matplotlib.pyplot as plt
+import argparse
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--models', nargs='+', default=['GCN', 'GAT', 'GIN'],
+                        choices=['GCN', 'GAT', 'GIN', 'all'],
+                        help="Specify which models to run: GCN, GAT, GIN, or all")
+    args = parser.parse_args()
+
+    # Handle 'all' argument
+    if 'all' in args.models:
+        selected_models = ['GCN', 'GAT', 'GIN']
+    else:
+        selected_models = args.models
+
     # Datasets
     datasets = {
-        "Cora": load_dataset(root="/tmp/Cora", name="Cora"),  # Cora has 7 classes
-        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY'),  # IMDB-BINARY has 2 classes
-        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES')  # ENZYMES has 6 classes
+        "Cora": load_dataset(root="/tmp/Cora", name="Cora"),
+        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY'),
+        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES')
     }
-    
+
     layer_configs = [2, 3, 4, 5, 6, 7, 8]
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
         "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier}
     }
-    
-    results = {dataset_name: {model_name: {'accuracy': [], 'time': []} for model_name in model_classes[dataset_name].keys()} for dataset_name in datasets.keys()}
-    
+
+    # Filter models based on selected_models
+    for dataset_name in model_classes:
+        model_classes[dataset_name] = {
+            k: v for k, v in model_classes[dataset_name].items() if k in selected_models
+        }
+
+    results = {
+        dataset_name: {
+            model_name: {'accuracy': [], 'time': []}
+            for model_name in model_classes[dataset_name]
+        }
+        for dataset_name in datasets
+    }
+
     for dataset_name, dataset in datasets.items():
         print(f"\nEvaluating on {dataset_name} dataset")
-        
+
         if dataset_name == "Cora":
             data = dataset[0]
             num_classes = dataset.num_classes
@@ -31,7 +57,7 @@ def main():
             data = dataset
             num_classes = dataset.num_classes
             num_features = dataset.num_features
-        
+
         for model_name, model_class in model_classes[dataset_name].items():
             print(f"\nTraining {model_name} on {dataset_name}")
             for num_layers in layer_configs:
@@ -56,10 +82,10 @@ def main():
                 log_file.write(f"    Accuracies: {values['accuracy']}\n")
                 log_file.write(f"    Training Times: {values['time']}\n")
             log_file.write("\n")
-    
+
     # Plotting results
     fig, axes = plt.subplots(len(datasets), 2, figsize=(12, 18))
-    
+
     for i, (dataset_name, metrics) in enumerate(results.items()):
         # Plot accuracies
         for model_name, values in metrics.items():
@@ -68,15 +94,15 @@ def main():
         axes[i, 0].set_xlabel('Number of Layers')
         axes[i, 0].set_ylabel('Accuracy')
         axes[i, 0].legend()
-        
+
         # Plot training times
         for model_name, values in metrics.items():
             axes[i, 1].plot(layer_configs, values['time'], label=f'{model_name} Training Time', marker='o')
-        axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers')
-        axes[i, 1].set_xlabel('Number of Layers')
-        axes[i, 1].set_ylabel('Training Time (seconds)')
-        axes[i, 1].legend()
-    
+            axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers')
+            axes[i, 1].set_xlabel('Number of Layers')
+            axes[i, 1].set_ylabel('Training Time (seconds)')
+            axes[i, 1].legend()
+
     plt.tight_layout()
     plt.show()
 
