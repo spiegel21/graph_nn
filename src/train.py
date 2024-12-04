@@ -58,33 +58,22 @@ def evaluate_graph_model(loader, model, criterion):
             correct += (pred == data.y).sum().item()
     return total_loss / len(loader.dataset), correct / len(loader.dataset)
 
-def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=300, lr=1e-3, weight_decay=5e-4, patience=50):
+def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=200, lr=1e-2, weight_decay=5e-4):
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = torch.nn.NLLLoss()
-    best_val_loss = float('inf')
-    epochs_without_improvement = 0
     start_time = time.time()
     
     for epoch in range(num_epochs):
         train_loss = train_node_model(data, model, optimizer, criterion)
         val_loss, val_accuracy = evaluate_node_model(data, model, criterion)
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            epochs_without_improvement = 0
-            best_model_state = model.state_dict()
-        else:
-            epochs_without_improvement += 1
-        if epochs_without_improvement >= patience:
-            print(f"Early stopping at epoch {epoch + 1} with validation loss {val_loss:.4f}")
-            break
+    print(f'Epoch {epoch}+1, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
     end_time = time.time()
     training_time = end_time - start_time
-    model.load_state_dict(best_model_state)
     test_accuracy = test_node_model(data, model)
     return test_accuracy, training_time
 
-def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=300, lr=1e-3, weight_decay=5e-4, patience=50, batch_size=64):
+def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=200, lr=1e-2, weight_decay=5e-4, batch_size=64):
     # Split the dataset
     torch.manual_seed(42)
     dataset = dataset.shuffle()
@@ -99,24 +88,13 @@ def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_cha
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = torch.nn.NLLLoss()
-    best_val_loss = float('inf')
-    epochs_without_improvement = 0
     start_time = time.time()
     
     for epoch in range(num_epochs):
         train_loss = train_graph_model(train_loader, model, optimizer, criterion)
         val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion)
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            epochs_without_improvement = 0
-            best_model_state = model.state_dict()
-        else:
-            epochs_without_improvement += 1
-        if epochs_without_improvement >= patience:
-            print(f"Early stopping at epoch {epoch + 1} with validation loss {val_loss:.4f}")
-            break
+    print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
     end_time = time.time()
     training_time = end_time - start_time
-    model.load_state_dict(best_model_state)
     test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion)
     return test_accuracy, training_time

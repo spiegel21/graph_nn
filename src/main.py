@@ -11,7 +11,7 @@ def main():
         "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES')  # ENZYMES has 6 classes
     }
     
-    layer_configs = [2, 4, 8]
+    layer_configs = [2, 3, 4, 5, 6, 7, 8]
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
