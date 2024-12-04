@@ -3,8 +3,13 @@ from train import train_and_evaluate_node_model, train_and_evaluate_graph_model
 from utils import load_dataset
 import matplotlib.pyplot as plt
 import argparse
+import torch
 
 def main():
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
+
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--models', nargs='+', default=['GCN', 'GAT', 'GIN'],
@@ -25,7 +30,7 @@ def main():
         "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES')
     }
 
-    layer_configs = [2, 3, 4, 5, 6, 7, 8]
+    layer_configs = [2, 3, 4]
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
@@ -50,11 +55,11 @@ def main():
         print(f"\nEvaluating on {dataset_name} dataset")
 
         if dataset_name == "Cora":
-            data = dataset[0]
+            data = dataset[0].to(device)  # Move data to device
             num_classes = dataset.num_classes
             num_features = data.num_node_features
         else:
-            data = dataset
+            data = [graph.to(device) for graph in dataset]
             num_classes = dataset.num_classes
             num_features = dataset.num_features
 
@@ -63,11 +68,11 @@ def main():
             for num_layers in layer_configs:
                 if dataset_name == "Cora":
                     accuracy, training_time = train_and_evaluate_node_model(
-                        model_class, num_layers, num_features, num_classes, data
+                        model_class, num_layers, num_features, num_classes, data, device=device
                     )
                 else:
                     accuracy, training_time = train_and_evaluate_graph_model(
-                        model_class, num_layers, num_features, num_classes, data
+                        model_class, num_layers, num_features, num_classes, data, device=device
                     )
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
@@ -98,10 +103,10 @@ def main():
         # Plot training times
         for model_name, values in metrics.items():
             axes[i, 1].plot(layer_configs, values['time'], label=f'{model_name} Training Time', marker='o')
-            axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers')
-            axes[i, 1].set_xlabel('Number of Layers')
-            axes[i, 1].set_ylabel('Training Time (seconds)')
-            axes[i, 1].legend()
+        axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers')
+        axes[i, 1].set_xlabel('Number of Layers')
+        axes[i, 1].set_ylabel('Training Time (seconds)')
+        axes[i, 1].legend()
 
     plt.tight_layout()
     plt.show()
