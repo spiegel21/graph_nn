@@ -68,11 +68,11 @@ def main():
             for num_layers in layer_configs:
                 if dataset_name == "Cora":
                     accuracy, training_time = train_and_evaluate_node_model(
-                        model_class, num_layers, num_features, num_classes, data, device=device
+                        model_class, num_layers, num_features, num_classes, data
                     )
                 else:
                     accuracy, training_time = train_and_evaluate_graph_model(
-                        model_class, num_layers, num_features, num_classes, data, device=device
+                        model_class, num_layers, num_features, num_classes, data
                     )
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
