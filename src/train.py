@@ -78,28 +78,44 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
     test_accuracy = test_node_model(data, model)
     return test_accuracy, training_time
 
-def train_and_evaluate_graph_model(model_class, num_layers, in_channels, out_channels, dataset, num_epochs=200, lr=1e-2, weight_decay=5e-4, batch_size=64):
+def train_and_evaluate_graph_model(
+    model_class, num_layers, in_channels, out_channels, dataset,
+    num_epochs=200, lr=1e-2, weight_decay=5e-4, batch_size=64, device='cpu'
+):
     torch.manual_seed(42)
-    dataset = dataset.shuffle()
-    dataset = dataset.to(device)
+    dataset = dataset.shuffle()  # Shuffle the dataset
+    
+    # Split the dataset into train, val, and test subsets
     train_dataset = dataset[:int(len(dataset) * 0.8)]
     val_dataset = dataset[int(len(dataset) * 0.8):int(len(dataset) * 0.9)]
     test_dataset = dataset[int(len(dataset) * 0.9):]
     
+    # Create data loaders for batching
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
     
+    # Initialize the model and move it to the device
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = torch.nn.NLLLoss()
+    
     start_time = time.time()
     
+    # Training loop
     for epoch in range(num_epochs):
-        train_loss = train_graph_model(train_loader, model, optimizer, criterion)
-        val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion)
+        # Train the model
+        train_loss = train_graph_model(train_loader, model, optimizer, criterion, device)
+        
+        # Evaluate on the validation set
+        val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion, device)
+        
         print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
+    
     end_time = time.time()
     training_time = end_time - start_time
-    test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion)
+    
+    # Test the model
+    test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion, device)
+    
     return test_accuracy, training_time
