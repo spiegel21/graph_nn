@@ -4,8 +4,12 @@ from utils import load_dataset
 import matplotlib.pyplot as plt
 import argparse
 import torch
+import os
 
 def main():
+    # Create outputs directory if it doesn't exist
+    os.makedirs("../outputs", exist_ok=True)
+
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
@@ -89,28 +93,54 @@ def main():
                 log_file.write(f"    Training Times: {values['time']}\n")
             log_file.write("\n")
 
-    # Plotting results
-    fig, axes = plt.subplots(len(datasets), 2, figsize=(12, 18))
-
+    # Set style for better-looking plots
+    plt.style.use('seaborn')
+    
+    # Create plots
+    fig, axes = plt.subplots(len(datasets), 2, figsize=(15, 6 * len(datasets)))
+    
+    # Use a different color for each model
+    colors = ['#2ecc71', '#3498db', '#e74c3c']
+    
     for i, (dataset_name, metrics) in enumerate(results.items()):
         # Plot accuracies
-        for model_name, values in metrics.items():
-            axes[i, 0].plot(layer_configs, values['accuracy'], label=f'{model_name} Accuracy', marker='o')
-        axes[i, 0].set_title(f'{dataset_name} - Accuracy vs Number of Layers')
-        axes[i, 0].set_xlabel('Number of Layers')
-        axes[i, 0].set_ylabel('Accuracy')
-        axes[i, 0].legend()
+        for j, (model_name, values) in enumerate(metrics.items()):
+            axes[i, 0].plot(layer_configs, values['accuracy'], 
+                          label=f'{model_name}', 
+                          marker='o', 
+                          color=colors[j],
+                          linewidth=2,
+                          markersize=8)
+        axes[i, 0].set_title(f'{dataset_name} - Accuracy vs Number of Layers', 
+                           fontsize=12, pad=15)
+        axes[i, 0].set_xlabel('Number of Layers', fontsize=10)
+        axes[i, 0].set_ylabel('Accuracy', fontsize=10)
+        axes[i, 0].grid(True, linestyle='--', alpha=0.7)
+        axes[i, 0].legend(fontsize=10)
+        axes[i, 0].set_ylim(0, 1)  # Accuracy is between 0 and 1
 
         # Plot training times
-        for model_name, values in metrics.items():
-            axes[i, 1].plot(layer_configs, values['time'], label=f'{model_name} Training Time', marker='o')
-        axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers')
-        axes[i, 1].set_xlabel('Number of Layers')
-        axes[i, 1].set_ylabel('Training Time (seconds)')
-        axes[i, 1].legend()
+        for j, (model_name, values) in enumerate(metrics.items()):
+            axes[i, 1].plot(layer_configs, values['time'], 
+                          label=f'{model_name}', 
+                          marker='o', 
+                          color=colors[j],
+                          linewidth=2,
+                          markersize=8)
+        axes[i, 1].set_title(f'{dataset_name} - Training Time vs Number of Layers', 
+                           fontsize=12, pad=15)
+        axes[i, 1].set_xlabel('Number of Layers', fontsize=10)
+        axes[i, 1].set_ylabel('Training Time (seconds)', fontsize=10)
+        axes[i, 1].grid(True, linestyle='--', alpha=0.7)
+        axes[i, 1].legend(fontsize=10)
 
     plt.tight_layout()
-    plt.show()
+    
+    # Save the plot
+    plot_path = "../outputs/model_comparison.png"
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    print(f"\nPlot saved to {plot_path}")
+    plt.close()  # Close the figure to free memory
 
 if __name__ == "__main__":
     main()
