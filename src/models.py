@@ -6,92 +6,79 @@ class GINModel(torch.nn.Module):
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
         super(GINModel, self).__init__()
         self.layers = torch.nn.ModuleList()
+        # Simplified MLP in GINConv - single layer instead of two
         for i in range(num_layers):
             if i == 0:
-                nn = torch.nn.Sequential(
-                    torch.nn.Linear(in_channels, hidden_channels),
-                    torch.nn.ReLU(),
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU()
-                )
+                nn = torch.nn.Linear(in_channels, hidden_channels)
             elif i == num_layers - 1:
-                nn = torch.nn.Sequential(
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU(),
-                    torch.nn.Linear(hidden_channels, out_channels)
-                )
+                nn = torch.nn.Linear(hidden_channels, out_channels)
             else:
-                nn = torch.nn.Sequential(
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU(),
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU()
-                )
-            conv = GINConv(nn, train_eps=True)
+                nn = torch.nn.Linear(hidden_channels, hidden_channels)
+            # Disable eps training to remove adaptivity
+            conv = GINConv(nn, train_eps=False, eps=0.0)
             self.layers.append(conv)
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        for i, conv in enumerate(self.layers):
+        for conv in self.layers[:-1]:
             x = conv(x, edge_index)
-            if i < len(self.layers) - 1:
-                x = F.relu(x)
+            x = F.relu(x)
+        x = self.layers[-1](x, edge_index)
         return F.log_softmax(x, dim=1)
 
 class GCNModel(torch.nn.Module):
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
         super(GCNModel, self).__init__()
-        self.gcn_layers = torch.nn.ModuleList()
-        self.gcn_layers.append(GCNConv(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.gcn_layers.append(GCNConv(hidden_channels, hidden_channels))
-        self.gcn_layers.append(GCNConv(hidden_channels, out_channels))
+        self.layers = torch.nn.ModuleList()
+        # Remove improved parameter
+        if num_layers > 1:
+            self.layers.append(GCNConv(in_channels, hidden_channels, add_self_loops=False))
+            for _ in range(num_layers - 2):
+                self.layers.append(GCNConv(hidden_channels, hidden_channels, add_self_loops=False))
+            self.layers.append(GCNConv(hidden_channels, out_channels, add_self_loops=False))
+        else:
+            self.layers.append(GCNConv(in_channels, out_channels, add_self_loops=False))
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        for i, layer in enumerate(self.gcn_layers):
-            x = layer(x, edge_index)
-            if i < len(self.gcn_layers) - 1:
-                x = F.relu(x)
+        for conv in self.layers[:-1]:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+        x = self.layers[-1](x, edge_index)
         return F.log_softmax(x, dim=1)
 
 class GATModel(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, hidden_channels=64, heads=8, num_layers=2):
+    def __init__(self, in_channels, out_channels, hidden_channels=64, heads=1, num_layers=2):
         super(GATModel, self).__init__()
-        self.gat_layers = torch.nn.ModuleList()
-        self.gat_layers.append(GATConv(in_channels, hidden_channels, heads=heads))
-        for _ in range(num_layers - 2):
-            self.gat_layers.append(GATConv(hidden_channels * heads, hidden_channels, heads=heads))
-        self.gat_layers.append(GATConv(hidden_channels * heads, out_channels, heads=1, concat=False))
+        self.layers = torch.nn.ModuleList()
+        # Reduce heads to 1 and remove concatenation
+        if num_layers > 1:
+            self.layers.append(GATConv(in_channels, hidden_channels, heads=heads, concat=False))
+            for _ in range(num_layers - 2):
+                self.layers.append(GATConv(hidden_channels, hidden_channels, heads=heads, concat=False))
+            self.layers.append(GATConv(hidden_channels, out_channels, heads=heads, concat=False))
+        else:
+            self.layers.append(GATConv(in_channels, out_channels, heads=heads, concat=False))
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        for i, layer in enumerate(self.gat_layers):
-            x = layer(x, edge_index)
-            if i < len(self.gat_layers) - 1:
-                x = F.relu(x)
+        for conv in self.layers[:-1]:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+        x = self.layers[-1](x, edge_index)
         return F.log_softmax(x, dim=1)
 
 class GINGraphClassifier(torch.nn.Module):
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
         super(GINGraphClassifier, self).__init__()
         self.layers = torch.nn.ModuleList()
+        # Simplified MLP in GINConv - single layer instead of two
         for i in range(num_layers):
             if i == 0:
-                nn = torch.nn.Sequential(
-                    torch.nn.Linear(in_channels, hidden_channels),
-                    torch.nn.ReLU(),
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU()
-                )
+                nn = torch.nn.Linear(in_channels, hidden_channels)
             else:
-                nn = torch.nn.Sequential(
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU(),
-                    torch.nn.Linear(hidden_channels, hidden_channels),
-                    torch.nn.ReLU()
-                )
-            conv = GINConv(nn, train_eps=True)
+                nn = torch.nn.Linear(hidden_channels, hidden_channels)
+            conv = GINConv(nn, train_eps=False, eps=0.0)
             self.layers.append(conv)
         self.fc = torch.nn.Linear(hidden_channels, out_channels)
 
@@ -100,21 +87,25 @@ class GINGraphClassifier(torch.nn.Module):
         x = data.x.to(device)
         edge_index = data.edge_index.to(device)
         batch = data.batch.to(device)
-        for i, conv in enumerate(self.layers):
+        
+        for conv in self.layers:
             x = conv(x, edge_index)
             x = F.relu(x)
-        x = global_add_pool(x, batch)  # Aggregate features to graph level
+        x = global_add_pool(x, batch)
         x = self.fc(x)
         return F.log_softmax(x, dim=1)
 
 class GCNGraphClassifier(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels=64, out_channels=None, num_layers=2):
         super().__init__()
-        self.gcn_layers = torch.nn.ModuleList()
-        self.gcn_layers.append(GCNConv(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.gcn_layers.append(GCNConv(hidden_channels, hidden_channels))
-        self.gcn_layers.append(GCNConv(hidden_channels, hidden_channels))
+        self.layers = torch.nn.ModuleList()
+        if num_layers > 1:
+            self.layers.append(GCNConv(in_channels, hidden_channels, add_self_loops=False))
+            for _ in range(num_layers - 2):
+                self.layers.append(GCNConv(hidden_channels, hidden_channels, add_self_loops=False))
+            self.layers.append(GCNConv(hidden_channels, hidden_channels, add_self_loops=False))
+        else:
+            self.layers.append(GCNConv(in_channels, hidden_channels, add_self_loops=False))
         self.fc = torch.nn.Linear(hidden_channels, out_channels)
 
     def forward(self, data):
@@ -122,21 +113,25 @@ class GCNGraphClassifier(torch.nn.Module):
         x = data.x.to(device)
         edge_index = data.edge_index.to(device)
         batch = data.batch.to(device)
-        for i, layer in enumerate(self.gcn_layers):
-            x = layer(x, edge_index)
-            if i < len(self.gcn_layers) - 1:
-                x = F.relu(x)
-        x = global_add_pool(x, batch)  # Aggregate features to graph level
-        return F.log_softmax(self.fc(x), dim=1)
+        
+        for conv in self.layers:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        x = self.fc(x)
+        return F.log_softmax(x, dim=1)
 
 class GATGraphClassifier(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels=64, out_channels=None, heads=8, num_layers=2):
+    def __init__(self, in_channels, hidden_channels=64, out_channels=None, heads=1, num_layers=2):
         super().__init__()
-        self.gat_layers = torch.nn.ModuleList()
-        self.gat_layers.append(GATConv(in_channels, hidden_channels, heads=heads))
-        for _ in range(num_layers - 2):
-            self.gat_layers.append(GATConv(hidden_channels * heads, hidden_channels, heads=heads))
-        self.gat_layers.append(GATConv(hidden_channels * heads, hidden_channels, heads=1, concat=False))
+        self.layers = torch.nn.ModuleList()
+        if num_layers > 1:
+            self.layers.append(GATConv(in_channels, hidden_channels, heads=heads, concat=False))
+            for _ in range(num_layers - 2):
+                self.layers.append(GATConv(hidden_channels, hidden_channels, heads=heads, concat=False))
+            self.layers.append(GATConv(hidden_channels, hidden_channels, heads=heads, concat=False))
+        else:
+            self.layers.append(GATConv(in_channels, hidden_channels, heads=heads, concat=False))
         self.fc = torch.nn.Linear(hidden_channels, out_channels)
 
     def forward(self, data):
@@ -144,9 +139,10 @@ class GATGraphClassifier(torch.nn.Module):
         x = data.x.to(device)
         edge_index = data.edge_index.to(device)
         batch = data.batch.to(device)
-        for i, layer in enumerate(self.gat_layers):
-            x = layer(x, edge_index)
-            if i < len(self.gat_layers) - 1:
-                x = F.relu(x)
-        x = global_add_pool(x, batch)  # Aggregate features to graph level
-        return F.log_softmax(self.fc(x), dim=1)
+        
+        for conv in self.layers:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        x = self.fc(x)
+        return F.log_softmax(x, dim=1)
