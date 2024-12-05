@@ -34,7 +34,7 @@ def main():
         "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device)
     }
 
-    layer_configs = [2, 3, 4, 5, 6, 7, 8]
+    layer_configs = list(range(2, 22, 2))
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
@@ -129,7 +129,7 @@ def main():
         ax2.set_title(f'{dataset_name} - Training Time vs Number of Layers', 
                      fontsize=12, pad=15)
         ax2.set_xlabel('Number of Layers', fontsize=10)
-        ax2.set_ylabel('Training Time (seconds)', fontsize=10)
+        ax2.set_ylabel('Training Time per Epoch (seconds)', fontsize=10)
         ax2.grid(True, linestyle='--', alpha=0.7)
         ax2.legend(fontsize=10)
 

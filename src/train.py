@@ -1,5 +1,6 @@
 import torch
 from torch_geometric.loader import DataLoader
+from tqdm.auto import tqdm
 import torch.nn.functional as F
 import time
 
@@ -70,13 +71,28 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
     criterion = torch.nn.NLLLoss()
     start_time = time.time()
     
-    for epoch in range(num_epochs):
+    best_val_acc = 0
+    best_model = None
+    patience_counter = 0
+    for epoch in tqdm(range(num_epochs)):
         train_loss = train_node_model(data, model, optimizer, criterion)
         val_loss, val_accuracy = evaluate_node_model(data, model, criterion)
-        print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
+        # print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
+        if(val_accuracy > best_val_acc):
+            best_val_acc = val_accuracy
+            best_model = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+        if(patience_counter >= 20):
+            print(f'Early stopping at epoch {epoch+1}')
+            model.load_state_dict(best_model)
+            break
+
     end_time = time.time()
-    training_time = end_time - start_time
+    training_time = (end_time - start_time) / (epoch + 1)
     test_accuracy = test_node_model(data, model)
+    print(test_accuracy, training_time)
     return test_accuracy, training_time
 
 def train_and_evaluate_graph_model(
@@ -106,13 +122,26 @@ def train_and_evaluate_graph_model(
     
     start_time = time.time()
     
-    for epoch in range(num_epochs):
+    best_val_acc = 0
+    best_model = None
+    patience_counter = 0
+    for epoch in tqdm(range(num_epochs)):
         train_loss = train_graph_model(train_loader, model, optimizer, criterion, device)
         val_loss, val_accuracy = evaluate_graph_model(val_loader, model, criterion, device)
-        print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
+        if(val_accuracy > best_val_acc):
+            best_val_acc = val_accuracy
+            best_model = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+        if(patience_counter >= 20):
+            print(f'Early stopping at epoch {epoch+1}')
+            model.load_state_dict(best_model)
+            break
+        # print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
     
     end_time = time.time()
-    training_time = end_time - start_time
+    training_time = (end_time - start_time) / (epoch + 1)
     
     test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion, device)
     
