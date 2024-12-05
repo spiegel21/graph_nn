@@ -35,6 +35,7 @@ def main():
     }
 
     layer_configs = list(range(2, 22, 2))
+
     model_classes = {
         "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
         "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
