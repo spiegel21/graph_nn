@@ -62,7 +62,7 @@ def evaluate_graph_model(loader, model, criterion, device):
             total += batch.y.size(0)
     return total_loss / len(loader), correct / total
 
-def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=400, lr=1e-2, weight_decay=5e-4):
+def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_channels, data, num_epochs=200, lr=1e-2, weight_decay=5e-4):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model_class(in_channels, out_channels=out_channels, num_layers=num_layers).to(device)
     data = data.to(device)
@@ -81,7 +81,7 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
 
 def train_and_evaluate_graph_model(
     model_class, num_layers, in_channels, out_channels, dataset,
-    num_epochs=400, lr=1e-2, weight_decay=5e-4, batch_size=64, device=None
+    num_epochs=200, lr=1e-2, weight_decay=5e-4, batch_size=64, device=None
 ):
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
