@@ -146,3 +146,99 @@ def train_and_evaluate_graph_model(
     test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion, device)
     
     return test_accuracy, training_time
+
+
+def train_and_evaluate_lrgb_model(
+    model_class, num_layers, in_channels, out_channels, dataset,
+    num_epochs=200, lr=1e-3, weight_decay=1e-4, batch_size=32, device=None
+):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Split indices for train/val/test
+    num_graphs = len(dataset)
+    indices = torch.randperm(num_graphs)
+    
+    train_idx = indices[:int(0.8 * num_graphs)]
+    val_idx = indices[int(0.8 * num_graphs):int(0.9 * num_graphs)]
+    test_idx = indices[int(0.9 * num_graphs):]
+    
+    train_dataset = dataset[train_idx]
+    val_dataset = dataset[val_idx]
+    test_dataset = dataset[test_idx]
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+    
+    model = model_class(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        hidden_channels=64,
+        num_layers=num_layers
+    ).to(device)
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    criterion = torch.nn.BCEWithLogitsLoss()
+    
+    best_val_loss = float('inf')
+    best_model = None
+    patience = 20
+    patience_counter = 0
+    
+    start_time = time.time()
+    
+    for epoch in tqdm(range(num_epochs)):
+        # Training
+        model.train()
+        total_loss = 0
+        for batch in train_loader:
+            optimizer.zero_grad()
+            out = model(batch.to(device))
+            loss = criterion(out, batch.y.float().to(device))
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+        
+        # Validation
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                batch = batch.to(device)
+                out = model(batch)
+                val_loss += criterion(out, batch.y.float()).item()
+        
+        val_loss /= len(val_loader)
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f'Early stopping at epoch {epoch}')
+                break
+    
+    end_time = time.time()
+    training_time = (end_time - start_time) / (epoch + 1)
+    
+    # Evaluate on test set
+    model.load_state_dict(best_model)
+    model.eval()
+    
+    total_correct = 0
+    total_preds = 0
+    
+    with torch.no_grad():
+        for batch in test_loader:
+            batch = batch.to(device)
+            out = model(batch)
+            pred = (out > 0).float()
+            correct = (pred == batch.y).sum().item()
+            total_correct += correct
+            total_preds += batch.y.numel()
+    
+    test_accuracy = total_correct / total_preds
+    return test_accuracy, training_time

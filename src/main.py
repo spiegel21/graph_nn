@@ -1,5 +1,5 @@
 from models import *
-from train import train_and_evaluate_node_model, train_and_evaluate_graph_model
+from train import train_and_evaluate_node_model, train_and_evaluate_graph_model, train_and_evaluate_lrgb_model
 from utils import load_dataset
 import matplotlib.pyplot as plt
 import argparse
@@ -29,17 +29,22 @@ def main():
 
     # Datasets
     datasets = {
-        "Cora": load_dataset(root="/tmp/Cora", name="Cora", device=device),
-        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY', device=device),
-        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device)
+        # "Cora": load_dataset(root="/tmp/Cora", name="Cora", device=device),
+        # "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY', device=device),
+        # "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device),
+        "LRGB": load_dataset(root='/tmp/LRGB', name='LRGB', device=device)
     }
 
     layer_configs = list(range(2, 22, 2))
 
     model_classes = {
-        "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel,"GPS": GPSNode},
-        "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier, 'GPS': GPSGraph},
-        "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier,"GPS": GPSGraph}
+        # "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel, "GPS": GPSNode},
+        # "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
+        #                "GIN": GINGraphClassifier, "GPS": GPSGraph},
+        # "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
+        #            "GIN": GINGraphClassifier, "GPS": GPSGraph},
+        "LRGB": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
+                 "GIN": GINGraphClassifier, "GPS": GPSGraph}
     }
 
     # Filter models based on selected_models
@@ -58,11 +63,17 @@ def main():
 
     for dataset_name, dataset in datasets.items():
         print(f"\nEvaluating on {dataset_name} dataset")
-
+        
+        
         if dataset_name == "Cora":
             data = dataset[0]  # Data is already on the correct device from load_dataset
             num_classes = dataset.num_classes
             num_features = data.num_node_features
+        elif dataset_name == "LRGB":
+            data = dataset
+            num_classes = dataset.num_classes  # Now using the attribute we added
+            num_features = dataset[0].num_features
+            print(f"LRGB dataset details: {num_features} features, {num_classes} targets")
         else:
             data = dataset  # Data is already on the correct device from load_dataset
             num_classes = dataset.num_classes
@@ -71,15 +82,22 @@ def main():
         for model_name, model_class in model_classes[dataset_name].items():
             print(f"\nTraining {model_name} on {dataset_name}")
             for num_layers in layer_configs:
-                if dataset_name == "Cora":
+                if dataset_name == "Cora":  
                     accuracy, training_time = train_and_evaluate_node_model(
                         model_class, num_layers, num_features, num_classes, data
+                    )
+                elif dataset_name == "LRGB":
+                    accuracy, training_time = train_and_evaluate_lrgb_model(
+                        model_class, num_layers, num_features, num_classes, data,
+                        device=device
                     )
                 else:
                     accuracy, training_time = train_and_evaluate_graph_model(
                         model_class, num_layers, num_features, num_classes, data,
                         device=device
                     )
+                
+                # Store results
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
 

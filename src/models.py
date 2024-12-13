@@ -1,8 +1,10 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GINConv, GCNConv, GATConv, global_add_pool
+from torch_geometric.nn import GINConv, GCNConv, GATConv, global_add_pool,  global_mean_pool, global_max_pool
 from torch_geometric.nn import Linear
 from torch_geometric.nn import TransformerConv
+import torch.nn as nn
+
 
 class GINModel(torch.nn.Module):
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
@@ -150,80 +152,145 @@ class GATGraphClassifier(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
 
+class GPSLayer(torch.nn.Module):
+    """
+    Graph Positional and Structural Layer that combines local GNN with transformer for global attention
+    """
+    def __init__(self, dim_h, heads=4):
+        super().__init__()
+        # Local MPNN
+        self.local_model = GCNConv(dim_h, dim_h, add_self_loops=False)
+        
+        # Global attention - using TransformerConv for attention mechanism
+        self.global_model = TransformerConv(
+            dim_h, 
+            dim_h // heads, 
+            heads=heads, 
+            concat=True,
+            beta=True  # Enable edge attention
+        )
+        
+        # Layer norm for stability
+        self.norm1 = nn.LayerNorm(dim_h)
+        self.norm2 = nn.LayerNorm(dim_h)
+        
+        # FFN
+        self.ffn = nn.Sequential(
+            nn.Linear(dim_h, 2 * dim_h),
+            nn.ReLU(),
+            nn.Linear(2 * dim_h, dim_h)
+        )
+        
+        # Parameters for combining local and global
+        self.local_weight = nn.Parameter(torch.ones(1))
+        self.global_weight = nn.Parameter(torch.ones(1))
+    
+    def forward(self, x, edge_index):
+        # Ensure proper data types
+        x = x.float()
+        edge_index = edge_index.long()
+        
+        # Local MPNN
+        local_out = self.local_model(x, edge_index)
+        
+        # Global attention
+        global_out = self.global_model(x, edge_index)
+        
+        # Combine local and global (adaptive weights)
+        x = self.local_weight * local_out + self.global_weight * global_out
+        
+        # First normalization and residual
+        x = self.norm1(x + x)
+        
+        # FFN and second normalization
+        out = self.ffn(x)
+        out = self.norm2(out + x)
+        
+        return out
+
 class GPSNode(torch.nn.Module):
-    """Simplified GPS model specifically for node classification"""
+    """GPS model for node classification"""
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
+        self.num_layers = num_layers
         
-        self.convs = torch.nn.ModuleList()
-        for _ in range(num_layers - 1):
-            self.convs.append(GCNConv(hidden_channels, hidden_channels))
-            
-        self.out = GCNConv(hidden_channels, out_channels)
-        self.dropout = torch.nn.Dropout(0.5)
-
-    def forward(self, x, edge_index):
-        # First layer
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        # Initial projection
+        self.input_proj = Linear(in_channels, hidden_channels)
         
-        # Hidden layers
-        for conv in self.convs:
-            x = conv(x, edge_index)
-            x = F.relu(x)
-            x = self.dropout(x)
-            
-        # Output layer
-        x = self.out(x, edge_index)
-        return F.log_softmax(x, dim=1)
-
+        # GPS layers
+        self.layers = nn.ModuleList()
+        for _ in range(num_layers):
+            self.layers.append(GPSLayer(hidden_channels))
+        
+        # Output projection
+        self.output_proj = Linear(hidden_channels, out_channels)
+        
+        # Dropout
+        self.dropout = nn.Dropout(0.1)
+        
     def forward(self, data):
-        # Ensure we keep node-level predictions
-        x = data.x  # Shape: [num_nodes, num_features]
-        edge_index = data.edge_index
+        x, edge_index = data.x, data.edge_index
         
-        # First layer
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        # Initial projection
+        x = self.input_proj(x.float())
         
-        # Hidden layers
-        for conv in self.convs:
-            x = conv(x, edge_index)
-            x = F.relu(x)
+        # GPS layers
+        for layer in self.layers:
+            x = layer(x, edge_index)
             x = self.dropout(x)
-            
-        # Output layer - should maintain [num_nodes, num_classes] shape
-        x = self.out(x, edge_index)
+        
+        # Output projection
+        x = self.output_proj(x)
+        
         return F.log_softmax(x, dim=1)
 
 class GPSGraph(torch.nn.Module):
     """GPS model for graph classification"""
     def __init__(self, in_channels, out_channels, hidden_channels=64, num_layers=2):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
+        self.num_layers = num_layers
         
-        self.convs = torch.nn.ModuleList()
-        for _ in range(num_layers - 1):
-            self.convs.append(GCNConv(hidden_channels, hidden_channels))
-            
-        self.lin = Linear(hidden_channels, out_channels)
-        self.dropout = torch.nn.Dropout(0.5)
-
+        # Initial projection
+        self.input_proj = Linear(in_channels, hidden_channels)
+        
+        # GPS layers
+        self.layers = nn.ModuleList()
+        for _ in range(num_layers):
+            self.layers.append(GPSLayer(hidden_channels))
+        
+        # Multiple pooling for better graph representation
+        self.pool_mean = global_mean_pool
+        self.pool_max = global_max_pool
+        
+        # Output projections
+        self.output_proj = nn.Sequential(
+            nn.Linear(hidden_channels * 2, hidden_channels),
+            nn.ReLU(),
+            nn.Linear(hidden_channels, out_channels)
+        )
+        
+        # Dropout
+        self.dropout = nn.Dropout(0.1)
+        
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
         
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        # Initial projection
+        x = self.input_proj(x.float())
         
-        for conv in self.convs:
-            x = conv(x, edge_index)
-            x = F.relu(x)
+        # GPS layers
+        for layer in self.layers:
+            x = layer(x, edge_index)
             x = self.dropout(x)
-            
-        x = global_add_pool(x, batch)
-        x = self.lin(x)
+        
+        # Multiple pooling operations
+        pool_mean = self.pool_mean(x, batch)
+        pool_max = self.pool_max(x, batch)
+        
+        # Concatenate different pooling results
+        x = torch.cat([pool_mean, pool_max], dim=1)
+        
+        # Output projection
+        x = self.output_proj(x)
+        
         return F.log_softmax(x, dim=1)

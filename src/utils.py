@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.transforms import OneHotDegree
-from torch_geometric.datasets import Planetoid, TUDataset
+from torch_geometric.datasets import Planetoid, TUDataset, LRGBDataset
 from torch_geometric.transforms import Compose
 
 def find_max_degree(dataset):
@@ -21,28 +21,33 @@ class ToDevice(object):
 # Load dataset with OneHotDegree transform using maximum degree
 def load_dataset(root, name, device):
     if name == 'Cora':
-        # First load without transform to find max degree
         tmp_dataset = Planetoid(root=root, name=name)
         max_degree = find_max_degree(tmp_dataset)
         
-        # Create transform pipeline
         transform = Compose([
             OneHotDegree(max_degree),
             ToDevice(device)
         ])
         
-        # Load dataset with transforms
         return Planetoid(root=root, name=name, transform=transform)
+    elif name == 'LRGB':
+        # Load LRGB dataset
+        transform = Compose([
+            OneHotDegree(max_degree=50),  # You may need to adjust max_degree
+            ToDevice(device)
+        ])
+        return LRGBDataset(
+            root=root,
+            name='peptides-func',  # Using peptides-func subset of LRGB
+            transform=transform
+        )
     else:
-        # First load without transform to find max degree
         tmp_dataset = TUDataset(root=root, name=name)
         max_degree = find_max_degree(tmp_dataset)
         
-        # Create transform pipeline
         transform = Compose([
             OneHotDegree(max_degree),
             ToDevice(device)
         ])
         
-        # Load dataset with transforms
         return TUDataset(root=root, name=name, transform=transform)
