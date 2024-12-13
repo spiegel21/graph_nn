@@ -1,4 +1,4 @@
-from models import GCNModel, GATModel, GINModel, GCNGraphClassifier, GATGraphClassifier, GINGraphClassifier
+from models import *
 from train import train_and_evaluate_node_model, train_and_evaluate_graph_model
 from utils import load_dataset
 import matplotlib.pyplot as plt
@@ -16,14 +16,14 @@ def main():
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--models', nargs='+', default=['GCN', 'GAT', 'GIN'],
-                        choices=['GCN', 'GAT', 'GIN', 'all'],
-                        help="Specify which models to run: GCN, GAT, GIN, or all")
+    parser.add_argument('--models', nargs='+', default=['GCN', 'GAT', 'GIN', 'GPS'],
+                        choices=['GCN', 'GAT', 'GIN', 'GPS', 'all'],
+                        help="Specify which models to run: GCN, GAT, GIN, 'GPS' or all")
     args = parser.parse_args()
 
     # Handle 'all' argument
     if 'all' in args.models:
-        selected_models = ['GCN', 'GAT', 'GIN']
+        selected_models = ['GCN', 'GAT', 'GIN', 'GPS']
     else:
         selected_models = args.models
 
@@ -37,9 +37,9 @@ def main():
     layer_configs = list(range(2, 22, 2))
 
     model_classes = {
-        "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel},
-        "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier},
-        "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier}
+        "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel,"GPS": GPSNode},
+        "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier, 'GPS': GPSGraph},
+        "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, "GIN": GINGraphClassifier,"GPS": GPSGraph}
     }
 
     # Filter models based on selected_models
