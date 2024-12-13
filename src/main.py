@@ -129,7 +129,7 @@ def main():
     filtered_results = {k: v for k, v in results.items() if k != 'LRGB'} 
 
     # Use a different color for each model
-    colors = ['#2ecc71', '#3498db', '#e74c3c']
+    colors = ['#2ecc71', '#3498db', '#e74c3c', '#9b59b6']
     
  
 
