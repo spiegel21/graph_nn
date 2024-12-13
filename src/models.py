@@ -88,8 +88,8 @@ class GINGraphClassifier(torch.nn.Module):
 
     def forward(self, data):
         device = next(self.parameters()).device
-        x = data.x.to(device)
-        edge_index = data.edge_index.to(device)
+        x = data.x.to(device).float()
+        edge_index = data.edge_index.to(device).long()
         batch = data.batch.to(device)
         
         for conv in self.layers:
@@ -114,8 +114,8 @@ class GCNGraphClassifier(torch.nn.Module):
 
     def forward(self, data):
         device = next(self.parameters()).device
-        x = data.x.to(device)
-        edge_index = data.edge_index.to(device)
+        x = data.x.to(device).float()
+        edge_index = data.edge_index.to(device).long()
         batch = data.batch.to(device)
         
         for conv in self.layers:
@@ -140,8 +140,8 @@ class GATGraphClassifier(torch.nn.Module):
 
     def forward(self, data):
         device = next(self.parameters()).device
-        x = data.x.to(device)
-        edge_index = data.edge_index.to(device)
+        x = data.x.to(device).float()
+        edge_index = data.edge_index.to(device).long()
         batch = data.batch.to(device)
         
         for conv in self.layers:

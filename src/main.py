@@ -29,20 +29,20 @@ def main():
 
     # Datasets
     datasets = {
-        # "Cora": load_dataset(root="/tmp/Cora", name="Cora", device=device),
-        # "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY', device=device),
-        # "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device),
+        "Cora": load_dataset(root="/tmp/Cora", name="Cora", device=device),
+        "IMDB-BINARY": load_dataset(root='/tmp/IMDB', name='IMDB-BINARY', device=device),
+        "ENZYMES": load_dataset(root='/tmp/ENZYMES', name='ENZYMES', device=device),
         "LRGB": load_dataset(root='/tmp/LRGB', name='LRGB', device=device)
     }
 
     layer_configs = list(range(2, 22, 2))
 
     model_classes = {
-        # "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel, "GPS": GPSNode},
-        # "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
-        #                "GIN": GINGraphClassifier, "GPS": GPSGraph},
-        # "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
-        #            "GIN": GINGraphClassifier, "GPS": GPSGraph},
+        "Cora": {"GCN": GCNModel, "GAT": GATModel, "GIN": GINModel, "GPS": GPSNode},
+        "IMDB-BINARY": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
+                       "GIN": GINGraphClassifier, "GPS": GPSGraph},
+        "ENZYMES": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
+                   "GIN": GINGraphClassifier, "GPS": GPSGraph},
         "LRGB": {"GCN": GCNGraphClassifier, "GAT": GATGraphClassifier, 
                  "GIN": GINGraphClassifier, "GPS": GPSGraph}
     }
@@ -55,7 +55,7 @@ def main():
 
     results = {
         dataset_name: {
-            model_name: {'accuracy': [], 'time': []}
+            model_name: {'accuracy': [], 'time': [], 'train_acc': []}
             for model_name in model_classes[dataset_name]
         }
         for dataset_name in datasets
@@ -81,25 +81,35 @@ def main():
 
         for model_name, model_class in model_classes[dataset_name].items():
             print(f"\nTraining {model_name} on {dataset_name}")
+
+            
+
             for num_layers in layer_configs:
+
+                if dataset_name == "LRGB" and num_layers > 3:
+                    break
+
                 if dataset_name == "Cora":  
-                    accuracy, training_time = train_and_evaluate_node_model(
+                    accuracy, training_time, train_acc = train_and_evaluate_node_model(
                         model_class, num_layers, num_features, num_classes, data
                     )
                 elif dataset_name == "LRGB":
-                    accuracy, training_time = train_and_evaluate_lrgb_model(
+                    accuracy, training_time, train_acc = train_and_evaluate_lrgb_model(
                         model_class, num_layers, num_features, num_classes, data,
                         device=device
                     )
                 else:
-                    accuracy, training_time = train_and_evaluate_graph_model(
+                    accuracy, training_time, train_acc = train_and_evaluate_graph_model(
                         model_class, num_layers, num_features, num_classes, data,
                         device=device
                     )
                 
                 # Store results
+                results[dataset_name][model_name]['train_acc'].append(train_acc)
                 results[dataset_name][model_name]['accuracy'].append(accuracy)
                 results[dataset_name][model_name]['time'].append(training_time)
+
+
 
     # Write results to a log file
     log_file_path = "../outputs/results_log.txt"
@@ -108,6 +118,7 @@ def main():
             log_file.write(f"Results for {dataset_name} dataset:\n")
             for model_name, values in metrics.items():
                 log_file.write(f"  Model: {model_name}\n")
+                log_file.write(f"  Train Accuracies: {values['train_acc']}\n")
                 log_file.write(f"    Accuracies: {values['accuracy']}\n")
                 log_file.write(f"    Training Times: {values['time']}\n")
             log_file.write("\n")
@@ -115,10 +126,14 @@ def main():
     # Create plots
     fig, axes = plt.subplots(len(datasets), 2, figsize=(15, 6 * len(datasets)))
     
+    filtered_results = {k: v for k, v in results.items() if k != 'LRGB'} 
+
     # Use a different color for each model
     colors = ['#2ecc71', '#3498db', '#e74c3c']
     
-    for i, (dataset_name, metrics) in enumerate(results.items()):
+ 
+
+    for i,  (dataset_name, metrics) in enumerate(filtered_results.items()):
         # Plot accuracies
         ax1 = axes[i, 0]
         for j, (model_name, values) in enumerate(metrics.items()):

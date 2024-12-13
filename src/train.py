@@ -3,6 +3,8 @@ from torch_geometric.loader import DataLoader
 from tqdm.auto import tqdm
 import torch.nn.functional as F
 import time
+import numpy as np
+from sklearn.metrics import average_precision_score
 
 def train_node_model(data, model, optimizer, criterion):
     model.train()
@@ -74,6 +76,7 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
     best_val_acc = 0
     best_model = None
     patience_counter = 0
+
     for epoch in tqdm(range(num_epochs)):
         train_loss = train_node_model(data, model, optimizer, criterion)
         val_loss, val_accuracy = evaluate_node_model(data, model, criterion)
@@ -91,9 +94,16 @@ def train_and_evaluate_node_model(model_class, num_layers, in_channels, out_chan
 
     end_time = time.time()
     training_time = (end_time - start_time) / (epoch + 1)
+
+    model.eval()
+    with torch.no_grad():
+        out = model(data)
+        pred = out.argmax(dim=1)
+        train_accuracy = (pred[data.train_mask] == data.y[data.train_mask]).sum().item() / data.train_mask.sum().item()
+
     test_accuracy = test_node_model(data, model)
     print(test_accuracy, training_time)
-    return test_accuracy, training_time
+    return test_accuracy, training_time, train_accuracy
 
 def train_and_evaluate_graph_model(
     model_class, num_layers, in_channels, out_channels, dataset,
@@ -142,10 +152,24 @@ def train_and_evaluate_graph_model(
     
     end_time = time.time()
     training_time = (end_time - start_time) / (epoch + 1)
+
+    model.eval()
+    train_correct = 0
+    train_total = 0
+    with torch.no_grad():
+        for batch in train_loader:
+            batch = batch.to(device)
+            out = model(batch)
+            pred = out.argmax(dim=1)
+            train_correct += (pred == batch.y).sum().item()
+            train_total += batch.y.size(0)
+    train_accuracy = train_correct / train_total
     
     test_loss, test_accuracy = evaluate_graph_model(test_loader, model, criterion, device)
     
-    return test_accuracy, training_time
+    return test_accuracy, training_time, train_accuracy
+
+
 
 
 def train_and_evaluate_lrgb_model(
@@ -171,6 +195,14 @@ def train_and_evaluate_lrgb_model(
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
     
+    # Calculate positive class weights for loss function
+    pos_counts = 0
+    total = 0
+    for data in train_loader:
+        pos_counts += data.y.sum(dim=0)
+        total += data.y.size(0)
+    pos_weights = ((total - pos_counts) / pos_counts).to(device)
+    
     model = model_class(
         in_channels=in_channels,
         out_channels=out_channels,
@@ -179,9 +211,36 @@ def train_and_evaluate_lrgb_model(
     ).to(device)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weights)
     
-    best_val_loss = float('inf')
+    def evaluate(loader):
+        model.eval()
+        y_true = []
+        y_pred = []
+        
+        with torch.no_grad():
+            for batch in loader:
+                batch = batch.to(device)
+                out = model(batch)
+                # Store raw predictions (before sigmoid) for BCE loss
+                y_pred.append(out.cpu().numpy())
+                y_true.append(batch.y.cpu().numpy())
+        
+        y_true = np.concatenate(y_true, axis=0)
+        y_pred = np.concatenate(y_pred, axis=0)
+        
+        # Calculate average precision for each class
+        ap_scores = []
+        for i in range(y_true.shape[1]):
+            # Only calculate AP if there are positive samples
+            if y_true[:, i].sum() > 0:
+                ap = average_precision_score(y_true[:, i], y_pred[:, i])
+                ap_scores.append(ap)
+        
+        # Return mean AP (unweighted average across classes)
+        return np.mean(ap_scores)
+    
+    best_val_score = 0
     best_model = None
     patience = 20
     patience_counter = 0
@@ -193,26 +252,19 @@ def train_and_evaluate_lrgb_model(
         model.train()
         total_loss = 0
         for batch in train_loader:
+            batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch.to(device))
-            loss = criterion(out, batch.y.float().to(device))
+            out = model(batch)
+            loss = criterion(out, batch.y.float())
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
         
         # Validation
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for batch in val_loader:
-                batch = batch.to(device)
-                out = model(batch)
-                val_loss += criterion(out, batch.y.float()).item()
+        val_score = evaluate(val_loader)
         
-        val_loss /= len(val_loader)
-        
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_score > best_val_score:
+            best_val_score = val_score
             best_model = model.state_dict()
             patience_counter = 0
         else:
@@ -224,21 +276,13 @@ def train_and_evaluate_lrgb_model(
     end_time = time.time()
     training_time = (end_time - start_time) / (epoch + 1)
     
-    # Evaluate on test set
+    # Load best model and evaluate
     model.load_state_dict(best_model)
-    model.eval()
+    train_map = evaluate(train_loader)
+    test_map = evaluate(test_loader)
     
-    total_correct = 0
-    total_preds = 0
+    print(f"\nFinal Results:")
+    print(f"Train mAP: {train_map:.4f}")
+    print(f"Test mAP: {test_map:.4f}")
     
-    with torch.no_grad():
-        for batch in test_loader:
-            batch = batch.to(device)
-            out = model(batch)
-            pred = (out > 0).float()
-            correct = (pred == batch.y).sum().item()
-            total_correct += correct
-            total_preds += batch.y.numel()
-    
-    test_accuracy = total_correct / total_preds
-    return test_accuracy, training_time
+    return test_map, training_time, train_map
